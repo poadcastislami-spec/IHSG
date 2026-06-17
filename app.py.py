@@ -1426,133 +1426,276 @@ with st.container(border=True):
         st.info("💡 Klik tombol 'JALANKAN SCREENING' untuk melihat hasil analisis saham potensial.")
 
 # ============================================
-# TABEL REKOMENDASI DARI HISTORY SCREENING
+# TAB INDEKS GLOBAL & IHSG
 # ============================================
 st.markdown("---")
-st.markdown("### 📋 REKOMENDASI DARI HISTORY SCREENING")
+st.markdown("### 🌏 INDEKS GLOBAL & IHSG")
 
-tab1, tab2, tab3 = st.tabs(["⭐ Rekomendasi Terbaik", "📊 History Screening", "📈 Tracking Akumulasi"])
+tab_scanner, tab_indeks = st.tabs(["📊 Scanner Saham", "🌏 Indeks Global"])
 
 # ============================================
-# TAB 1: REKOMENDASI TERBAIK (DARI HISTORY)
+# TAB 1: SCANNER SAHAM (INFO SAJA)
 # ============================================
-with tab1:
+with tab_scanner:
+    st.info("📌 Fitur screening saham berada di bagian atas halaman")
+    st.caption("Silakan scroll ke atas untuk mengakses fitur screening lengkap dengan:")
     st.markdown("""
-    **📌 Tabel ini berisi rekomendasi dari beberapa hari screening yang lalu.**
-    - Berguna untuk melacak saham yang muncul berulang kali
-    - Membantu mendeteksi akumulasi bandar dari waktu ke waktu
-    - **Perhatikan kolom "Status Kenaikan"** untuk mengetahui apakah saham sudah terbang
+    - ✅ Filter harga fleksibel (Rp 90 - 500+)
+    - ✅ Screening otomatis dengan skor
+    - ✅ History screening
+    - ✅ Rekomendasi dari history
+    - ✅ Tracking akumulasi bandar
     """)
+
+# ============================================
+# TAB INDEKS GLOBAL & IHSG
+# ============================================
+st.markdown("---")
+st.markdown("### 🌏 INDEKS GLOBAL & IHSG")
+
+tab_scanner, tab_indeks = st.tabs(["📊 Scanner Saham", "🌏 Indeks Global"])
+
+# ============================================
+# TAB 1: SCANNER SAHAM (INFO SAJA)
+# ============================================
+with tab_scanner:
+    st.info("📌 Fitur screening saham berada di bagian atas halaman")
+    st.caption("Silakan scroll ke atas untuk mengakses fitur screening lengkap dengan:")
+    st.markdown("""
+    - ✅ Filter harga fleksibel (Rp 90 - 500+)
+    - ✅ Screening otomatis dengan skor
+    - ✅ History screening
+    - ✅ Rekomendasi dari history
+    - ✅ Tracking akumulasi bandar
+    """)
+
+# ============================================
+# TAB 2: INDEKS GLOBAL
+# ============================================
+with tab_indeks:
+    st.markdown("### 📈 INDEKS GLOBAL & IHSG")
+    st.markdown("*Pantau pergerakan indeks global untuk acuan trading*")
     
-    if st.session_state['rekomendasi_history']:
-        # Konversi ke DataFrame
-        df_rekom = pd.DataFrame(st.session_state['rekomendasi_history'])
+    # ============================================
+    # 1. FUNGSI AMBIL DATA INDEKS
+    # ============================================
+    def get_index_data(ticker, period="5d"):
+        """Ambil data indeks dari Yahoo Finance"""
+        try:
+            df = yf.download(ticker, period=period, interval="1d", progress=False)
+            if df.empty:
+                return None
+            return df
+        except:
+            return None
+    
+    def calculate_index_metrics(df):
+        """Hitung metrik indeks - DIPERBAIKI"""
+        if df is None or df.empty:
+            return None
         
-        # Kelompokkan berdasarkan ticker
-        rekom_summary = df_rekom.groupby('ticker').agg({
-            'skor': ['mean', 'max', 'count'],
-            'alasan': lambda x: ' | '.join(x.unique()[:3]),
-            'harga': 'last',
-            'rekomendasi': 'last',
-            'tanggal': 'last'
-        }).reset_index()
-        
-        rekom_summary.columns = ['Ticker', 'Rata-rata Skor', 'Skor Tertinggi', 'Jumlah Muncul', 'Alasan', 'Harga Terakhir', 'Rekomendasi Terakhir', 'Terakhir Muncul']
-        rekom_summary = rekom_summary.sort_values('Rata-rata Skor', ascending=False)
-        
-        st.subheader(f"⭐ {len(rekom_summary)} Saham dengan Rekomendasi Terbaik")
-        
-        st.dataframe(
-            rekom_summary,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Ticker": st.column_config.TextColumn("Ticker", width="small"),
-                "Rata-rata Skor": st.column_config.NumberColumn("Rata-rata Skor", format="%.1f"),
-                "Skor Tertinggi": st.column_config.NumberColumn("Skor Tertinggi", format="%d"),
-                "Jumlah Muncul": st.column_config.NumberColumn("Muncul", format="%d"),
-                "Alasan": st.column_config.TextColumn("Alasan", width="large"),
-                "Harga Terakhir": st.column_config.NumberColumn("Harga", format="Rp %.0f"),
-                "Rekomendasi Terakhir": st.column_config.TextColumn("Rekomendasi", width="medium"),
-                "Terakhir Muncul": st.column_config.TextColumn("Terakhir", width="small"),
-            }
-        )
-        
-        # Tambahan: Saham yang paling sering muncul
-        st.markdown("---")
-        st.subheader("🔥 Top 5 Saham Paling Sering Muncul")
-        
-        top_5 = rekom_summary.nlargest(5, 'Jumlah Muncul')[['Ticker', 'Jumlah Muncul', 'Rata-rata Skor', 'Rekomendasi Terakhir']]
-        st.dataframe(top_5, use_container_width=True, hide_index=True)
-        
-        # Tombol reset rekomendasi
-        if st.button("🗑️ Reset Rekomendasi History", use_container_width=True):
-            st.session_state['rekomendasi_history'] = []
-            st.success("✅ Rekomendasi history berhasil direset")
-            st.rerun()
+        # Ambil nilai dengan cara yang paling aman
+        try:
+            # Ambil sebagai numpy array lalu ambil nilai terakhir
+            close_values = df['Close'].values.flatten()
+            last_close = float(close_values[-1])
+            prev_close = float(close_values[-2]) if len(close_values) > 1 else last_close
             
-    else:
-        st.info("💡 Belum ada rekomendasi tersimpan. Jalankan screening terlebih dahulu!")
-
-# ============================================
-# TAB 2: HISTORY SCREENING
-# ============================================
-with tab2:
-    if st.session_state['screening_history']:
-        st.info("📌 Data screening dari hari-hari sebelumnya:")
+            high_values = df['High'].values.flatten()
+            high = float(high_values.max())
+            
+            low_values = df['Low'].values.flatten()
+            low = float(low_values.min())
+            
+            if 'Volume' in df.columns and len(df['Volume']) > 0:
+                volume_values = df['Volume'].values.flatten()
+                volume = int(volume_values[-1])
+            else:
+                volume = 0
+        except Exception as e:
+            # Fallback: coba cara lain
+            try:
+                last_close = float(df['Close'].iloc[-1].item())
+                prev_close = float(df['Close'].iloc[-2].item()) if len(df) > 1 else last_close
+                high = float(df['High'].max().item())
+                low = float(df['Low'].min().item())
+                volume = int(df['Volume'].iloc[-1].item()) if 'Volume' in df.columns and len(df['Volume']) > 0 else 0
+            except:
+                # Fallback terakhir
+                last_close = float(df['Close'].tail(1).values[0][0])
+                prev_close = float(df['Close'].tail(2).values[0][0]) if len(df) > 1 else last_close
+                high = float(df['High'].max())
+                low = float(df['Low'].min())
+                volume = 0
         
-        for idx, history in enumerate(st.session_state['screening_history']):
-            with st.expander(f"📅 {history['tanggal']} - {len(history['data'])} saham ditemukan"):
-                st.dataframe(
-                    history['data'][['Ticker', 'Harga', 'Perubahan %', 'Perubahan Volume %', 'Skor', 'Rekomendasi', 'Status Bandar', 'Status Kenaikan', 'Alasan']],
-                    use_container_width=True,
-                    hide_index=True
-                )
-    else:
-        st.info("💡 Belum ada history screening. Jalankan screening terlebih dahulu.")
-
-# ============================================
-# TAB 3: TRACKING AKUMULASI BANDAR
-# ============================================
-with tab3:
-    st.markdown("""
-    ### 🔍 Tracking Akumulasi Bandar
-    
-    **Cara Kerja:**
-    1. Screening hari ini akan menampilkan saham dengan **Status Bandar**
-    2. Status menunjukkan apakah bandar sedang akumulasi atau tidak
-    3. Pantau perubahan status dari hari ke hari
-    """)
-    
-    if st.session_state['screening_history']:
-        # Ambil data terakhir
-        history_terakhir = st.session_state['screening_history'][-1]['data']
-        
-        # Filter saham dengan akumulasi bandar
-        akumulasi = history_terakhir[history_terakhir['Status Bandar'].str.contains("Akumulasi")]
-        distribusi = history_terakhir[history_terakhir['Status Bandar'].str.contains("Distribusi")]
-        sepi = history_terakhir[history_terakhir['Status Bandar'].str.contains("Sepi")]
-        
-        col_akum, col_dist, col_sepi = st.columns(3)
-        with col_akum:
-            st.metric("🟢 Bandar Akumulasi", len(akumulasi))
-        with col_dist:
-            st.metric("🔴 Bandar Distribusi", len(distribusi))
-        with col_sepi:
-            st.metric("⚪ Ditinggalkan Bandar", len(sepi))
-        
-        st.markdown("---")
-        
-        # Tampilkan saham yang diakumulasi bandar
-        if not akumulasi.empty:
-            st.subheader("🟢 Saham yang Sedang Diakumulasi Bandar")
-            st.dataframe(
-                akumulasi[['Ticker', 'Harga', 'Perubahan %', 'Perubahan Volume %', 'Status Bandar', 'Status Kenaikan', 'Skor', 'Rekomendasi', 'Alasan']],
-                use_container_width=True,
-                hide_index=True
-            )
-            st.caption("📌 Saham ini sedang dikoleksi bandar. Pantau terus, bisa naik dalam 2-3 hari ke depan!")
+        # Hitung perubahan persen
+        if prev_close > 0:
+            change_pct = ((last_close - prev_close) / prev_close) * 100
         else:
-            st.info("💡 Belum ada saham yang terdeteksi akumulasi bandar hari ini")
+            change_pct = 0
+        
+        return {
+            'last': round(last_close, 2),
+            'change': round(change_pct, 2),
+            'high': round(high, 2),
+            'low': round(low, 2),
+            'volume': volume
+        }
+    
+    # ============================================
+    # 2. KONFIGURASI INDEKS
+    # ============================================
+    indeks_global = {
+        # Indonesia
+        '^JKSE': {'nama': 'IHSG', 'bendera': '🇮🇩', 'warna': '#e74c3c'},
+        
+        # Asia
+        '^N225': {'nama': 'Nikkei 225', 'bendera': '🇯🇵', 'warna': '#3498db'},
+        '^HSI': {'nama': 'Hang Seng', 'bendera': '🇭🇰', 'warna': '#f1c40f'},
+        '^STI': {'nama': 'Straits Times', 'bendera': '🇸🇬', 'warna': '#2ecc71'},
+        '^KS11': {'nama': 'KOSPI', 'bendera': '🇰🇷', 'warna': '#9b59b6'},
+        
+        # US
+        '^GSPC': {'nama': 'S&P 500', 'bendera': '🇺🇸', 'warna': '#2ecc71'},
+        '^DJI': {'nama': 'Dow Jones', 'bendera': '🇺🇸', 'warna': '#3498db'},
+        '^IXIC': {'nama': 'NASDAQ', 'bendera': '🇺🇸', 'warna': '#e74c3c'},
+        
+        # Eropa
+        '^FTSE': {'nama': 'FTSE 100', 'bendera': '🇬🇧', 'warna': '#1abc9c'},
+        '^FCHI': {'nama': 'CAC 40', 'bendera': '🇫🇷', 'warna': '#f39c12'},
+        '^GDAXI': {'nama': 'DAX', 'bendera': '🇩🇪', 'warna': '#9b59b6'},
+        
+        # Lainnya
+        '^BVSP': {'nama': 'Bovespa', 'bendera': '🇧🇷', 'warna': '#2ecc71'},
+        '^MXX': {'nama': 'IPC', 'bendera': '🇲🇽', 'warna': '#f1c40f'},
+        '^RUT': {'nama': 'Russell 2000', 'bendera': '🇺🇸', 'warna': '#e67e22'},
+    }
+    
+    # ============================================
+    # 3. TAMPILAN IHSG (UTAMA)
+    # ============================================
+    st.subheader("📊 IHSG - Indeks Harga Saham Gabungan")
+    
+    ihsg_data = get_index_data('^JKSE', period="7d")
+    if ihsg_data is not None:
+        ihsg_metrics = calculate_index_metrics(ihsg_data)
+        
+        col_ihsg1, col_ihsg2, col_ihsg3, col_ihsg4 = st.columns(4)
+        with col_ihsg1:
+            st.metric("💰 IHSG", f"{ihsg_metrics['last']:,}", delta=f"{ihsg_metrics['change']}%")
+        with col_ihsg2:
+            st.metric("📈 Tertinggi", f"{ihsg_metrics['high']:,}")
+        with col_ihsg3:
+            st.metric("📉 Terendah", f"{ihsg_metrics['low']:,}")
+        with col_ihsg4:
+            st.metric("📊 Volume", f"{ihsg_metrics['volume']:,}")
     else:
-        st.info("💡 Jalankan screening terlebih dahulu untuk melihat tracking akumulasi bandar.")
+        st.warning("⚠️ Gagal memuat data IHSG")
+    
+    st.markdown("---")
+    
+    # ============================================
+    # 4. TAMPILAN INDEKS GLOBAL LAINNYA
+    # ============================================
+    st.subheader("🌏 Indeks Global")
+    
+    # Bagi menjadi beberapa baris (4 kolom per baris)
+    cols = st.columns(4)
+    col_idx = 0
+    
+    for ticker, info in indeks_global.items():
+        if ticker == '^JKSE':
+            continue
+        
+        with cols[col_idx % 4]:
+            data = get_index_data(ticker, period="5d")
+            if data is not None:
+                metrics = calculate_index_metrics(data)
+                
+                if metrics['change'] > 0:
+                    warna_delta = "#2ecc71"
+                    icon = "🟢"
+                elif metrics['change'] < 0:
+                    warna_delta = "#e74c3c"
+                    icon = "🔴"
+                else:
+                    warna_delta = "#f1c40f"
+                    icon = "🟡"
+                
+                st.markdown(
+                    f"""
+                    <div style='background-color: rgba(255,255,255,0.02); border: 1px solid {info['warna']}40; 
+                         padding: 10px; border-radius: 8px; margin-bottom: 10px;'>
+                        <div style='font-size: 14px; font-weight: bold;'>{info['bendera']} {info['nama']}</div>
+                        <div style='font-size: 18px; font-weight: bold;'>{metrics['last']:,}</div>
+                        <div style='color: {warna_delta}; font-size: 14px;'>
+                            {icon} {metrics['change']}%
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    f"""
+                    <div style='background-color: rgba(255,255,255,0.02); border: 1px solid #444; 
+                         padding: 10px; border-radius: 8px; margin-bottom: 10px;'>
+                        <div style='font-size: 14px; font-weight: bold;'>{info['bendera']} {info['nama']}</div>
+                        <div style='font-size: 14px; color: #888;'>⚠️ Data tidak tersedia</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+        
+        col_idx += 1
+    
+    st.markdown("---")
+    
+    # ============================================
+    # 5. MSCI INDONESIA
+    # ============================================
+    st.subheader("📊 MSCI Indonesia")
+    
+    col_msci1, col_msci2 = st.columns(2)
+    
+    with col_msci1:
+        st.markdown("**🇮🇩 MSCI Indonesia (via EIDO ETF)**")
+        eido_data = get_index_data('EIDO', period="5d")
+        if eido_data is not None:
+            eido_metrics = calculate_index_metrics(eido_data)
+            st.metric("💰 EIDO (MSCI Indonesia)", f"${eido_metrics['last']:.2f}", delta=f"{eido_metrics['change']}%")
+        else:
+            st.warning("⚠️ Data EIDO tidak tersedia")
+    
+    with col_msci2:
+        st.markdown("**📈 Keterangan**")
+        st.caption("""
+        - MSCI Indonesia adalah indeks yang mengukur performa saham-saham Indonesia
+        - EIDO adalah ETF yang melacak MSCI Indonesia Index
+        - Naik/Turun EIDO mencerminkan sentimen investor asing terhadap Indonesia
+        """)
+    
+    st.markdown("---")
+    
+    # ============================================
+    # 6. AUTO REFRESH & TIPS
+    # ============================================
+    st.caption("🔄 Data diperbarui setiap kali halaman direfresh | Sumber: Yahoo Finance")
+    
+    with st.expander("💡 Tips Membaca Indeks Global"):
+        st.markdown("""
+        ### 📌 Tips Menggunakan Indeks Global untuk Scalping:
+        
+        **1. IHSG vs Global Index**
+        - Jika IHSG naik tapi indeks global turun -> Waspada, bisa koreksi
+        - Jika IHSG turun tapi indeks global naik -> Potensi rebound
+        
+        **2. IHSG vs MSCI Indonesia**
+        - IHSG naik, MSCI naik -> Konfirmasi bullish
+        - IHSG naik, MSCI turun -> Hati-hati, mungkin hanya sentimen lokal
+        
+        **3. Jam Trading**
+        - IHSG: 09:00-15:00 WIB
+        - US Market: 21:30-04:00 WIB (pengaruh ke IHSG besoknya)
+        - Asia Market: 08:00-16:00 WIB (pengaruh ke IHSG hari itu)
+        """)
